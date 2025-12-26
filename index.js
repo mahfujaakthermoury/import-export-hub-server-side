@@ -1,7 +1,7 @@
+require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 const port = 3000;
 
 const app = express();
@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json())
 
 
-const uri = "mongodb+srv://import_export:P7diRksOr9QCTsdH@clusterhub.3pf2lfb.mongodb.net/?appName=ClusterHub";
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@clusterhub.3pf2lfb.mongodb.net/?appName=ClusterHub`;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -21,11 +21,13 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+   // await client.connect();
 
     const database = client.db('exportProduct');
     const exportProducts = database.collection('products')
+        const importProducts = database.collection('orders')
 
+    
     //Post or save product to DB
     app.post('/products', async (req, res) => {
       const data = req.body;
@@ -76,41 +78,48 @@ async function run() {
       res.send(result)
     })
 
+    // Reduce quantity after importing start
     app.put('/update/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { importQuantity } = req.body;
+      try {
+        const { id } = req.params;
+        const { importQuantity } = req.body;
 
-    if (!importQuantity || importQuantity <= 0) {
-      return res.send({ error: 'Invalid import quantity' });
-    }
+        if (!importQuantity || importQuantity <= 0) {
+          return res.send({ error: 'Invalid import quantity' });
+        }
 
-    // Get current product
-    const product = await exportProducts.findOne({ _id: new ObjectId(id) });
-    if (!product) return res.status(404).send({ error: 'Product not found' });
-    if (product.quantity < importQuantity) {
-      return res.status(400).send({ error: 'Import quantity exceeds available stock' });
-    }
+        // Get current product
+        const product = await exportProducts.findOne({ _id: new ObjectId(id) });
+        if (!product) return res.status(404).send({ error: 'Product not found' });
+        if (product.quantity < importQuantity) {
+          return res.status(400).send({ error: 'Import quantity exceeds available stock' });
+        }
 
-    // Update quantity using $inc
-    const result = await exportProducts.updateOne(
-      { _id: new ObjectId(id) },
-      { $inc: { quantity: -importQuantity } } // <-- Only this line decreases the quantity
-    );
+        // Update quantity using $inc
+        const result = await exportProducts.updateOne(
+          { _id: new ObjectId(id) },
+          { $inc: { quantity: -importQuantity } } // <-- Only this line decreases the quantity
+        );
 
-    res.send({ success: true, modifiedCount: result.modifiedCount });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: 'Server error' });
+        res.send({ success: true, modifiedCount: result.modifiedCount });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: 'Server error' });
+      }
+    });
+    // Reduce quantity after importing
+
+    app.post('/my-import', async(req, res)=>{
+      const data = req.body
+      console.log(data);
+    })
+
+    
+    //await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } finally {
+    //await client.close(); (Make Comment allways)
   }
-});
-
-
-  await client.db("admin").command({ ping: 1 });
-  console.log("Pinged your deployment. You successfully connected to MongoDB!");
-} finally {
-  //await client.close(); (Make Comment allways)
-}
 }
 run().catch(console.dir);
 
