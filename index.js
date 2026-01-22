@@ -21,14 +21,14 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-   // await client.connect();
 
     const database = client.db('exportProduct');
     const exportProducts = database.collection('products')
-        const importProducts = database.collection('orders')
+    const importOrders = database.collection("orders");
+    //const importProducts = database.collection("imports");
 
-    
-    //Post or save product to DB
+
+    //Post product to DB
     app.post('/products', async (req, res) => {
       const data = req.body;
       console.log(data);
@@ -53,7 +53,6 @@ async function run() {
 
     app.get('/my-export', async (req, res) => {
       const { email } = req.query
-
       const query = { email: email }
       const result = await exportProducts.find(query).toArray()
       res.send(result)
@@ -78,47 +77,39 @@ async function run() {
       res.send(result)
     })
 
-    // Reduce quantity after importing start
-    app.put('/update/:id', async (req, res) => {
-      try {
-        const { id } = req.params;
-        const { importQuantity } = req.body;
+    //post import order
 
-        if (!importQuantity || importQuantity <= 0) {
-          return res.send({ error: 'Invalid import quantity' });
-        }
-
-        // Get current product
-        const product = await exportProducts.findOne({ _id: new ObjectId(id) });
-        if (!product) return res.status(404).send({ error: 'Product not found' });
-        if (product.quantity < importQuantity) {
-          return res.status(400).send({ error: 'Import quantity exceeds available stock' });
-        }
-
-        // Update quantity using $inc
-        const result = await exportProducts.updateOne(
-          { _id: new ObjectId(id) },
-          { $inc: { quantity: -importQuantity } } // <-- Only this line decreases the quantity
-        );
-
-        res.send({ success: true, modifiedCount: result.modifiedCount });
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ error: 'Server error' });
-      }
-    });
-    // Reduce quantity after importing
-
-    app.post('/my-import', async(req, res)=>{
+    app.post('/orders', async (req, res) => {
       const data = req.body
       console.log(data);
+      const result = await importOrders.insertOne(data)
+      res.send(result)
+    }) 
+
+    app.get('/orders', async (req, res) => {
+      const result = await importOrders.find().toArray();
+      console.log(result);
+      res.send(result);
     })
 
-    
-    //await client.db("admin").command({ ping: 1 });
+    // app.get('/my-import', async(req, res)=>{
+    //   const { email } = req.query
+    //   const query = { email: email }
+    //   const result = await importOrders.find(query).toArray()
+    //   res.send(result)
+    // })
+
+    //  app.delete('/imports-delete/:id', async (req, res) => {
+    //   const { id } = req.params
+    //   const query = { _id: new ObjectId(id) }
+    //   const result = await importOrders.deleteOne(query)
+    //   res.send(result)
+    // })
+ 
+  
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
-    //await client.close(); (Make Comment allways)
+    //await client.close(); 
   }
 }
 run().catch(console.dir);
